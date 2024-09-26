@@ -3,6 +3,7 @@ package com.abhi.JavaThreads.Service;
 import com.abhi.JavaThreads.models.Data;
 import com.abhi.JavaThreads.models.Thread1;
 import com.abhi.JavaThreads.models.Thread2;
+import org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration;
 import org.springframework.stereotype.Service;
 
 import java.util.Random;
@@ -27,7 +28,7 @@ public class ThreadService {
         //waitNotifyThreads();
         //conditionalLock();
         readWriteLock();
-
+        
     }
 
     public void executeThreadsByExtendingThreadClass() {
