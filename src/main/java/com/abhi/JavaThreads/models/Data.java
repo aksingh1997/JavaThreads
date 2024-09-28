@@ -190,4 +190,14 @@ public class Data {
         }
         readLock.unlock();
     }
+
+    // ExecutorService Thread pooling
+    public void poolThreadsDoHundredTasks(int taskNumber) throws Exception {
+        System.out.println("Started doing task with taskNumber:: " + taskNumber + " threadNo:: " + Thread.currentThread().getName());
+        /*
+        Lets say task takes 100ms. Now threads in pool can execute the sleep command simultaneously too.
+         */
+        Thread.sleep(100);
+        System.out.println("task completed:: " + taskNumber);
+    }
 }

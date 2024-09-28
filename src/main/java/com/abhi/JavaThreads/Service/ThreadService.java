@@ -7,9 +7,14 @@ import org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration
 import org.springframework.stereotype.Service;
 
 import java.util.Random;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiFunction;
+import java.util.stream.IntStream;
 
 @Service
 public class ThreadService {
@@ -27,8 +32,9 @@ public class ThreadService {
         //reentrantLock();
         //waitNotifyThreads();
         //conditionalLock();
-        readWriteLock();
-        
+        //readWriteLock();
+        // To do -> Optimistic read with versioning, Thread pooling - (ExecutorService and ForkJoinPool), volatile, tryLock(), Concurrent collections, Future.
+        threadPoolExecutorService();
     }
 
     public void executeThreadsByExtendingThreadClass() {
@@ -136,5 +142,48 @@ public class ThreadService {
             }
             thread.start();
         }
+    }
+
+    // Thread pool using ThreadPoolExecutor
+    public void threadPoolExecutorService() {
+        // The easiest and simple way to initialize a thread pool using thread pool executor, we can use other constructors too for better control over threads.
+        /*
+        * Let's see each param of constructor
+        * 1. corePoolSize - no of threads pool should begin with. They are always kept alive. Should be equal to actual no of cores for CPU-intensive work. Can be 2x/4x for IO intensive
+        * 2. maximumPoolSize - Once all the corePool threads are busy and queue is full, new threads are spawned which can go upto maximumPoolSize. They may die if idle.
+        * 3 & 4. keepAliveTime and TimeUnit - Amount of time for which a non-core thread can remain idle in pool before getting discarded.
+        * 5. BlockingQueue<Runnable> - We can provide different implementation of this interface. This is to hold the threads in queue when other threads in thread pool
+        * are busy processing. This can be of two types -> Unbounded[no fixed size] - LinkedBlockingQueue && Bounded[fixed size] - ArrayBlockingQueue. ArrayBlockingQueue
+        * is preferred as it performs well, and we can set boundary for no of threads that should remain in queue
+        *
+        * Note :: If a thread comes in a situation when pool is working on maximumPoolSize with all threads busy and queue is full, the incoming thread will be discarded.
+        * There are approaches of how those discarded threads are handled. Four policies are -
+        * 1. AbortPolicy(default) - Throws exception on each discarded policy so that it can be handled and logged
+        * 2. CallerRunsPolicy - The calling(parent) thread that submits the task runs the rejected task itself. Used to avoid any loss of tasks
+        * 3. DiscardPolicy - Discard the task silently without throwing exception
+        * 4. DiscardOldestPolicy - replace the oldest task from queue with new task. Used when new tasks have higher priority than older ones.
+        */
+        ExecutorService myThreadPool = new ThreadPoolExecutor(4, 8, 1, TimeUnit.MINUTES, new ArrayBlockingQueue<>(80));
+
+        // submitting 100 tasks in thread pool, lets see how many will get discarded
+        int failedTask = 0;
+        for(int i = 0; i < 100; i++) {
+            final int taskNo = i;
+            try {
+                //Thread.sleep(10); // Thread incoming rate in pool is 10ms. Uncomment this line to reduce the failed task to 0.
+                myThreadPool.execute( () -> {
+                    try {
+                        data.poolThreadsDoHundredTasks(taskNo);
+                    } catch(Exception ex) {
+                        System.out.println("Exception occured for task no :: " + taskNo);
+                    }
+                } );
+            } catch(Exception ex) {
+                failedTask++;
+            }
+        }
+        System.out.println("No of failed task = " + failedTask);
+
+        // No of cor
     }
 }
