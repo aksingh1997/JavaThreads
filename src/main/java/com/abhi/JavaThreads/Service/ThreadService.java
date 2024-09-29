@@ -6,11 +6,10 @@ import com.abhi.JavaThreads.models.Thread2;
 import org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiFunction;
@@ -34,7 +33,8 @@ public class ThreadService {
         //conditionalLock();
         //readWriteLock();
         // To do -> Optimistic read with versioning, Thread pooling - (ExecutorService and ForkJoinPool), volatile, tryLock(), Concurrent collections, Future.
-        threadPoolExecutorService();
+        //threadPoolExecutorService_execute();
+        //threadPoolExecutorService_submit();
     }
 
     public void executeThreadsByExtendingThreadClass() {
@@ -145,7 +145,7 @@ public class ThreadService {
     }
 
     // Thread pool using ThreadPoolExecutor
-    public void threadPoolExecutorService() {
+    public void threadPoolExecutorService_execute() { // using execute() will return void from executor service
         // The easiest and simple way to initialize a thread pool using thread pool executor, we can use other constructors too for better control over threads.
         /*
         * Let's see each param of constructor
@@ -183,7 +183,39 @@ public class ThreadService {
             }
         }
         System.out.println("No of failed task = " + failedTask);
-
-        // No of cor
     }
+
+    // submit method returns Future which will contain the result processed by thread pool
+    public void threadPoolExecutorService_submit() {
+        ExecutorService myThreadPool = new ThreadPoolExecutor(4, 8, 1, TimeUnit.MINUTES, new ArrayBlockingQueue<>(80));
+        List<Future<Integer>> futureList = new ArrayList<>();
+        for(int i = 0; i <= 50; i++) {
+            final int x = i;
+            Future<Integer> future = null;
+            try {
+                // Once we submit the task in thread pool, one of the threads will pick the task and execute it. The order of execution is upto jvm. Result will be stored in Future
+                // The future is immediately returned, we can use isDone() to check the status and get() to block parent's thread execution until we get the result.
+                future = myThreadPool.submit(() -> data.doSquare(x));
+            } catch(Exception ex) {
+                System.out.println("Exception occurred for no:: " + x);
+            }
+            futureList.add(future);
+        }
+        //since we have list of future, here I am checking if we have any thread which is not done using isDone() on each future object, if all are done, proceed to get result, or else loop
+        boolean flag = true;
+        while(flag) {
+            Future<Integer> processingFuture = futureList.stream().filter(x -> !x.isDone()).findAny().orElse(null);
+            if(processingFuture == null)
+                flag = false;
+        }
+        futureList.stream().forEach(x -> {
+            try {
+                System.out.println(x.get());
+            } catch (Exception ex) {
+                System.out.println("Exception while getting future");
+            }
+        });
+    }
+
+
 }

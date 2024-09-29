@@ -200,4 +200,11 @@ public class Data {
         Thread.sleep(100);
         System.out.println("task completed:: " + taskNumber);
     }
+
+    // ExecutorService -- submit() will consume this method and put this method's returned value in its future
+    public int doSquare(int x) throws Exception {
+        System.out.println("Squaring " + x + ", threadNo:: " + Thread.currentThread().getName());
+        Thread.sleep(100);
+        return x * x;
+    }
 }
