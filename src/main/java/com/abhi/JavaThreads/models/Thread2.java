@@ -1,8 +1,10 @@
 package com.abhi.JavaThreads.models;
 
+import com.abhi.JavaThreads.util.ThreadUtil;
+
 public class Thread2 extends Thread {
     @Override
     public void run() {
-        Data.iterate("t2");
+        ThreadUtil.iterate("t2");
     }
 }

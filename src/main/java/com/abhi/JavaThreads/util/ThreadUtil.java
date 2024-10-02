@@ -1,13 +1,18 @@
-package com.abhi.JavaThreads.models;
+package com.abhi.JavaThreads.util;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.RecursiveAction;
 import java.util.concurrent.locks.*;
 
 @Component
-public class Data {
+public class ThreadUtil {
 
+    private static final Logger log = LoggerFactory.getLogger(ThreadUtil.class);
     ReentrantLock gcdLock = new ReentrantLock();
     //ReentrantLock gcdLock = new ReentrantLock(true); // provide true as input as fairness flag, default is false. Fairness means FIFO/FCFS. This may reduce speed.
 
@@ -24,6 +29,7 @@ public class Data {
     Lock readLock = readWriteLock.readLock();
     Lock writeLock = readWriteLock.writeLock();
 
+    ForkJoinPool forkPool = new ForkJoinPool();
 
     public static ArrayList<Integer> ls;
     static {
@@ -47,7 +53,7 @@ public class Data {
         // we are taking class lock instead of object lock as it is static method
         /* a thread entering this segment will acquire lock and release it after exiting from block, This is basic way of preventing multiple threads accessing
         / same resource */
-        synchronized(Data.class) {
+        synchronized(ThreadUtil.class) {
             try {
                 for (Integer l : ls) {
                     Thread.sleep(500);
@@ -206,5 +212,73 @@ public class Data {
         System.out.println("Squaring " + x + ", threadNo:: " + Thread.currentThread().getName());
         Thread.sleep(100);
         return x * x;
+    }
+
+
+    // ForkJoin pool for recursive task like merge sort here. Each thread will store its subtask in its own queue.
+    public void mergeSort_forkJoin(int[] arr, int l, int r) {
+        if(l >= r)
+            return;
+        int mid = (l + r) / 2;
+        // we need to create left subtask and right subtask
+        RecursiveAction leftMergeSort = new RecursiveAction() {
+            @Override
+            protected void compute() {
+                mergeSort_forkJoin(arr, l, mid);
+            }
+        };
+
+        RecursiveAction rightMergeSort = new RecursiveAction() {
+            @Override
+            protected void compute() {
+                mergeSort_forkJoin(arr, mid + 1, r);
+            }
+        };
+        
+        //forkPool.invokeAll(leftMergeSort, rightMergeSort); // don't know how callable works
+        leftMergeSort.fork();
+        rightMergeSort.fork();
+        // time to call join() to finish the parallel processing and merge
+        leftMergeSort.join();
+        rightMergeSort.join();
+        merge(arr, l, mid, r);
+    }
+
+    // sequential merge sort
+    public void mergeSort(int[] arr, int l, int r) {
+        if(l >= r)
+            return;
+        int mid = (l + r) / 2;
+        mergeSort(arr, l, mid);
+        mergeSort(arr, mid + 1, r);
+        merge(arr, l, mid + 1, r);
+    }
+
+    public void merge(int[] arr, int l, int mid, int r) {
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        int[] tmp = new int[r - l + 1];
+        int x = l;
+        int y = mid;
+        int i = 0;
+        while(x < mid && y <= r) {
+            if(arr[x] < arr[y])
+                tmp[i++] = arr[x++];
+            else
+                tmp[i++] = arr[y++];
+        }
+        while(x < mid) {
+            tmp[i++] = arr[x++];
+        }
+        while(y <= r)
+            tmp[i++] = arr[y++];
+
+        i = 0;
+        while(l <= r) {
+            arr[l++] = tmp[i++];
+        }
     }
 }

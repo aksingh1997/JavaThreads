@@ -1,30 +1,24 @@
 package com.abhi.JavaThreads.Service;
 
-import com.abhi.JavaThreads.models.Data;
+import com.abhi.JavaThreads.util.ThreadUtil;
 import com.abhi.JavaThreads.models.Thread1;
 import com.abhi.JavaThreads.models.Thread2;
-import org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiFunction;
-import java.util.stream.IntStream;
 
 @Service
 public class ThreadService {
 
-    Data data;
+    ThreadUtil threadUtil;
 
     Thread t1 = null;
     Thread t2 = null;
 
-    public ThreadService(Data data) {
-        this.data = data;
+    public ThreadService(ThreadUtil threadUtil) {
+        this.threadUtil = threadUtil;
         //executeThreadsByExtendingThreadClass();
         //executeThreadsByImplementingRunnable();
         //executeSynchronizedThreads();
@@ -35,6 +29,7 @@ public class ThreadService {
         // To do -> Optimistic read with versioning, Thread pooling - (ExecutorService and ForkJoinPool), volatile, tryLock(), Concurrent collections, Future.
         //threadPoolExecutorService_execute();
         //threadPoolExecutorService_submit();
+        forkJoinPool();
     }
 
     public void executeThreadsByExtendingThreadClass() {
@@ -47,15 +42,15 @@ public class ThreadService {
     // better approach
     public void executeThreadsByImplementingRunnable() {
         // providing implementation of Runnable
-        Thread r1 = new Thread( () -> { Data.iterate("r1"); } );
-        Thread r2 = new Thread( () -> { Data.iterate("r2"); } );
+        Thread r1 = new Thread( () -> { ThreadUtil.iterate("r1"); } );
+        Thread r2 = new Thread( () -> { ThreadUtil.iterate("r2"); } );
         r1.start();
         r2.start();
     }
 
     public void executeSynchronizedThreads() {
-        Thread s1 = new Thread(Data::syncIterate, "s1");
-        Thread s2 = new Thread(Data::syncIterate, "s2");
+        Thread s1 = new Thread(ThreadUtil::syncIterate, "s1");
+        Thread s2 = new Thread(ThreadUtil::syncIterate, "s2");
         s1.start();
         s2.start();
     }
@@ -67,18 +62,18 @@ public class ThreadService {
 
         for(int i = 0; i < 10; i++) {
             if(i % 2 == 0)
-                new Thread(() -> data.produce(), String.valueOf(i)).start();
+                new Thread(() -> threadUtil.produce(), String.valueOf(i)).start();
             else
-                new Thread(() -> data.consume(), String.valueOf(i)).start();
+                new Thread(() -> threadUtil.consume(), String.valueOf(i)).start();
         }
     }
 
     public void conditionalLock() {
         for(int i = 0; i < 100; i++) {
-            new Thread(() -> data.consumeBiscuits()).start();
+            new Thread(() -> threadUtil.consumeBiscuits()).start();
         }
         for(int i = 0; i < 100; i++) {
-            new Thread(() -> data.produceBiscuits()).start();
+            new Thread(() -> threadUtil.produceBiscuits()).start();
         }
 
     }
@@ -86,14 +81,14 @@ public class ThreadService {
     // Once a thread acquires a Reentrant lock, it can acquire it again, but other threads cannot acquire the same lock.
     // we can take example of gcd()
     public void reentrantLock() {
-        BiFunction<Integer, Integer, Integer> printGcd = (x, y) -> data.gcd(x, y);
+        BiFunction<Integer, Integer, Integer> printGcd = (x, y) -> threadUtil.gcd(x, y);
         for(int i = 1; i < 10; i++) {
             for(int j = 1; j < 20; j++) {
                 // we need to create final variables here as lambda exp wont accept non final variables.
                 // Reason = Thread creation line contains gcd(x, y). Here x and y will be replaced by its exact value in lambda at compile time. So it should be constant.
                 final int x = i;
                 final int y = j;
-                new Thread(() -> System.out.println("gcd of " + x + " and " + y + " = " + data.gcd(x, y) + "\n\n")).start();
+                new Thread(() -> System.out.println("gcd of " + x + " and " + y + " = " + threadUtil.gcd(x, y) + "\n\n")).start();
                 // same thread will put lock on gcd method in recursion, increases its counter on each call, and decreases the lock counter while returning.
 
                 // Expected output is of type -
@@ -128,13 +123,13 @@ public class ThreadService {
             Thread thread = null;
             switch (p) {
                 case 0:
-                    thread = new Thread(() -> data.withdrawAmount(300));
+                    thread = new Thread(() -> threadUtil.withdrawAmount(300));
                     break;
                 case 1:
-                    thread = new Thread(() -> data.depositAmount(100));
+                    thread = new Thread(() -> threadUtil.depositAmount(100));
                     break;
                 case 2:
-                    thread = new Thread(() -> data.readBalance());
+                    thread = new Thread(() -> threadUtil.readBalance());
                     break;
                 default:
                     System.out.println("Wrong choice");
@@ -173,7 +168,7 @@ public class ThreadService {
                 //Thread.sleep(10); // Thread incoming rate in pool is 10ms. Uncomment this line to reduce the failed task to 0.
                 myThreadPool.execute( () -> {
                     try {
-                        data.poolThreadsDoHundredTasks(taskNo);
+                        threadUtil.poolThreadsDoHundredTasks(taskNo);
                     } catch(Exception ex) {
                         System.out.println("Exception occured for task no :: " + taskNo);
                     }
@@ -195,7 +190,7 @@ public class ThreadService {
             try {
                 // Once we submit the task in thread pool, one of the threads will pick the task and execute it. The order of execution is upto jvm. Result will be stored in Future
                 // The future is immediately returned, we can use isDone() to check the status and get() to block parent's thread execution until we get the result.
-                future = myThreadPool.submit(() -> data.doSquare(x));
+                future = myThreadPool.submit(() -> threadUtil.doSquare(x));
             } catch(Exception ex) {
                 System.out.println("Exception occurred for no:: " + x);
             }
@@ -217,5 +212,38 @@ public class ThreadService {
         });
     }
 
+    /*
+    * Fork join pool is used for those task that can be broken down further into subtasks, and each subtasks can be executed in parallel.
+    * We can use commonPool provided by JVM in ForkJoinPool. We can create our thread pool too by assigning n number of threads to pool.
+    * Each thread has its own deque along with a global common deque for all threads. A thread picks task for common deque , it keeps its subtasks in its own deque.
+    * Work stealing algo:- If a thread has completed its task and no task is left in its own deque, it can steal work from other thread's deque from tail. This ensures that
+    * all threads are busy and work is divided evenly. If thread cannot steal work , it will pick new task from global deque.
+    *
+    * ForkJoinTask - Object of this class is required as input in forkJoin pool. It has compute() method which needs to be overridden. Two implementations are
+    *   i. RecursiveAction -> void compute() {implementation...}
+    *   ii. RecursiveTask<T> -> T compute() {implementation...}
+    */
+    public void forkJoinPool() {
+        // ForkJoinPool forkPool = ForkJoinPool.commonPool(); // this is common pool managed by jvm, quick and ready to use;
+        ForkJoinPool forkPool = new ForkJoinPool(6);
+        int n = 100;
+        int[] arr1 = new int[n];
+        int[] arr2 = new int[n];
+        for(int i = 0; i < n; i++) {
+            arr1[i] = new Random().nextInt(1, 100);
+            arr2[i] = arr1[i];
+        }
 
+
+        long startTime = System.currentTimeMillis();
+        //normal sorting
+        threadUtil.mergeSort(arr2, 0, n - 1);
+        System.out.println("Normal sorting time taken : " + (System.currentTimeMillis() - startTime));
+
+        startTime = System.currentTimeMillis();
+
+        threadUtil.mergeSort_forkJoin(arr1, 0, n-1);
+        System.out.println("Fork join sorting time taken : " + (System.currentTimeMillis() - startTime));
+        //Arrays.stream(sortedArr).forEach(System.out::println);
+    }
 }
