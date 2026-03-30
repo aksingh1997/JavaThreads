@@ -29,7 +29,8 @@ public class ThreadService {
         // To do -> Optimistic read with versioning, Thread pooling - (ExecutorService and ForkJoinPool), volatile, tryLock(), Concurrent collections, Future.
         //threadPoolExecutorService_execute();
         //threadPoolExecutorService_submit();
-        forkJoinPool();
+        //forkJoinPool();
+        semaphore();
     }
 
     public void executeThreadsByExtendingThreadClass() {
@@ -245,5 +246,30 @@ public class ThreadService {
         threadUtil.mergeSort_forkJoin(arr1, 0, n-1);
         System.out.println("Fork join sorting time taken : " + (System.currentTimeMillis() - startTime));
         //Arrays.stream(sortedArr).forEach(System.out::println);
+    }
+
+    /*
+    It is used to provide lock count on shared resource. Practical example:- A DB should be accessible by only 10 threads. We can put semaphore count = 10 for the shared resource.
+    Why not use threadPool? - It might happen that we have multiple threadPools in our application each with threadPool of 10 trying to access that db. It will break.
+     */
+    private void semaphore() {
+        Semaphore dbLimiter = new Semaphore(3);
+        for(int i = 0; i < 9; i++) {
+            new Thread(() -> {
+                try {
+                    System.out.println("Acquiring lock. " + Thread.currentThread().getName());
+                    dbLimiter.acquire(); // if more than 3 threads have acquired the locks, the other threads will wait until locks are released. So at one time, only 3 threads are allowed to access db
+                    System.out.println("Acquired lock" + Thread.currentThread().getName());
+
+                    Thread.sleep(2000);
+                    // actual db call  here
+
+                    dbLimiter.release();
+                    System.out.println("lock released" + Thread.currentThread().getName());
+                } catch (Exception ex) {
+                    System.out.println(ex.getMessage());
+                }
+            }).start();
+        }
     }
 }
